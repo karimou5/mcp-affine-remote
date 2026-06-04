@@ -11,11 +11,11 @@ RUN npm install -g affine-mcp-server@${AFFINE_MCP_VERSION} \
     && npm cache clean --force
 
 # Run the HTTP transport so the server is reachable as a remote MCP endpoint.
-# HOST=0.0.0.0 ensures it binds on all interfaces inside the container (not just localhost),
-# otherwise Coolify / the reverse proxy can't reach it.
+# AFFINE_MCP_HTTP_HOST=0.0.0.0 makes it bind on all interfaces inside the container
+# (default is 127.0.0.1 / loopback only), otherwise Coolify / the reverse proxy can't reach it.
 ENV NODE_ENV=production \
     MCP_TRANSPORT=http \
-    HOST=0.0.0.0
+    AFFINE_MCP_HTTP_HOST=0.0.0.0
 
 # The server listens on 3000 in HTTP mode. The MCP endpoint is served at /mcp.
 EXPOSE 3000
