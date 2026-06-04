@@ -6,8 +6,12 @@ FROM node:22-slim
 #   docker build --build-arg AFFINE_MCP_VERSION=1.2.3 .
 ARG AFFINE_MCP_VERSION=latest
 
-# Install the AFFiNE MCP server globally from npm.
-RUN npm install -g affine-mcp-server@${AFFINE_MCP_VERSION} \
+# Install curl (Coolify's healthcheck needs curl or wget; node:slim ships neither)
+# and the AFFiNE MCP server globally from npm.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && npm install -g affine-mcp-server@${AFFINE_MCP_VERSION} \
     && npm cache clean --force
 
 # Run the HTTP transport so the server is reachable as a remote MCP endpoint.
@@ -21,9 +25,8 @@ ENV NODE_ENV=production \
 EXPOSE 3000
 
 # /healthz and /readyz are exposed by the server in HTTP mode.
-# Uses Node's global fetch (Node 22) so no extra packages are needed.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:3000/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD curl -fsS http://127.0.0.1:3000/healthz || exit 1
 
 # Drop privileges.
 USER node
