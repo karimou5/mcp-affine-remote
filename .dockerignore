@@ -1,0 +1,11 @@
+# The image installs affine-mcp-server from npm, so no local source is needed.
+# Keep the build context tiny.
+.git
+.github
+node_modules
+.env
+.env.*
+!.env.example
+README.md
+CLAUDE.md
+docker-compose.yml

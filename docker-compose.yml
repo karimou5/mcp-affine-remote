@@ -1,0 +1,17 @@
+# Local run / reference. Production deploy is on Coolify from the GHCR image.
+#   docker compose up --build
+services:
+  affine-mcp:
+    build: .
+    # In production, deploy the prebuilt image instead:
+    # image: ghcr.io/<owner>/mcp-affine-remote:latest
+    ports:
+      - "3000:3000"
+    environment:
+      MCP_TRANSPORT: http
+      HOST: 0.0.0.0
+      AFFINE_BASE_URL: ${AFFINE_BASE_URL}
+      AFFINE_API_TOKEN: ${AFFINE_API_TOKEN}
+      AFFINE_MCP_AUTH_MODE: ${AFFINE_MCP_AUTH_MODE:-bearer}
+      AFFINE_MCP_HTTP_TOKEN: ${AFFINE_MCP_HTTP_TOKEN:-}
+    restart: unless-stopped
