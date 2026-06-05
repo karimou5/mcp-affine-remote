@@ -27,8 +27,11 @@ The container is just an **API client**: it connects *outward* to AFFiNE (cloud 
 | `AFFINE_BASE_URL` | yes | AFFiNE instance, e.g. `https://app.affine.pro` |
 | `AFFINE_API_TOKEN` | yes | Access token (`ut_…`) from AFFiNE → Settings → account → API/access tokens |
 | `MCP_TRANSPORT` | yes | `http` (already set in the image) |
-| `AFFINE_MCP_AUTH_MODE` | yes | `bearer` or `none` (see Auth below) |
+| `AFFINE_MCP_AUTH_MODE` | yes | `oauth`, `bearer` or `none` (see Auth below) |
 | `AFFINE_MCP_HTTP_TOKEN` | if `bearer` | Long random secret required as `Authorization: Bearer …` |
+| `AFFINE_MCP_PUBLIC_BASE_URL` | if `oauth` | Public HTTPS URL of this container, e.g. `https://affine-mcp.karimou.me` |
+| `AFFINE_OAUTH_ISSUER_URL` | if `oauth` | OIDC issuer that signs the access tokens, e.g. `https://mcp-auth.karimou.me` |
+| `AFFINE_MCP_HTTP_ALLOWED_ORIGINS` | if `oauth` | Comma-separated browser origins (`ALLOW_ALL_ORIGINS` is rejected in oauth mode) |
 
 See `.env.example`. The container listens on **port 3000**, MCP endpoint at **`/mcp`**, health at **`/healthz`** and **`/readyz`**.
 
@@ -58,18 +61,38 @@ Public MCP URL becomes: `https://affine-mcp.karimou.me/mcp`
 
 | Client | Mode | How it authenticates |
 |---|---|---|
-| Claude **Code** / **Desktop** | `bearer` | Config sends `Authorization: Bearer <AFFINE_MCP_HTTP_TOKEN>` |
-| Claude **web** (claude.ai connector) | `none` + **Cloudflare Access** | The web dialog only does OAuth — it can't send a static bearer. Run the MCP with `AFFINE_MCP_AUTH_MODE=none` and put **Cloudflare Access** in front of the domain; Access provides the OAuth the connector expects. |
+| Claude **web** (claude.ai connector) | `oauth` | Full OAuth 2.1 discovery flow against an external OIDC issuer (below). The web dialog cannot send a static bearer header. |
+| Claude **Code** / **Desktop** | `oauth` (works too) or `bearer` | Either the same OAuth flow, or `Authorization: Bearer <AFFINE_MCP_HTTP_TOKEN>` in bearer mode |
 
-### Claude web custom connector
+### Claude web custom connector (`AFFINE_MCP_AUTH_MODE=oauth`)
 
-1. Deploy with `AFFINE_MCP_AUTH_MODE=none`.
-2. Protect `affine-mcp.karimou.me` with a **Cloudflare Access** application (OAuth/OIDC), policy = the emails allowed (you, your associate…).
-3. In Claude web → **Add custom connector**:
-   - **Name:** `AFFiNE`
-   - **Remote MCP server URL:** `https://affine-mcp.karimou.me/mcp`
-   - **Advanced → OAuth client ID / secret:** the credentials from the Cloudflare Access application.
-4. Sharing: add the person's **email** to the Access policy — they add the same connector and log in as themselves. No credential pair is handed out per user.
+How it works: claude.ai probes `/mcp`, gets `401 + WWW-Authenticate: resource_metadata=…`,
+reads `/.well-known/oauth-protected-resource`, discovers the authorization server, registers
+itself via **Dynamic Client Registration**, runs the browser OAuth flow, then calls `/mcp`
+with a **JWT access token** that `affine-mcp-server` (≥ 2.0) validates against the issuer's
+JWKS (`iss` + `aud` checks).
+
+The issuer is a small Cloudflare Worker — repo **`karimou5/mcp-auth-worker`**, deployed at
+`https://mcp-auth.karimou.me` — implementing authorize/token/register/jwks with an
+**email + OTP login** (UniOne) restricted to an allowlist (`ALLOWED_EMAILS` var on the Worker).
+
+Deploy this container with:
+
+```env
+AFFINE_MCP_AUTH_MODE=oauth
+AFFINE_MCP_PUBLIC_BASE_URL=https://affine-mcp.karimou.me
+AFFINE_OAUTH_ISSUER_URL=https://mcp-auth.karimou.me
+AFFINE_MCP_HTTP_ALLOWED_ORIGINS=https://claude.ai,https://claude.com
+```
+
+Gotchas:
+- `AFFINE_MCP_HTTP_ALLOW_ALL_ORIGINS=true` and `AFFINE_MCP_HTTP_TOKEN` are **rejected** in oauth mode.
+- The Cloudflare zone must **not block AI bots** ("AI Scrapers and Crawlers" / bot management):
+  claude.ai's backend calls with the `Claude-User` user-agent and gets a 403 at the edge otherwise.
+
+In Claude web → **Add custom connector** → URL `https://affine-mcp.karimou.me/mcp`.
+No OAuth client ID/secret needed (DCR). Login = allowlisted email + emailed code.
+Sharing: add the person's email to the Worker's `ALLOWED_EMAILS`.
 
 ### Claude Code config (bearer mode)
 

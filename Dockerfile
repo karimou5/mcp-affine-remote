@@ -4,7 +4,7 @@ FROM node:22-slim
 
 # Upstream MCP server version to install. Override at build time:
 #   docker build --build-arg AFFINE_MCP_VERSION=1.2.3 .
-ARG AFFINE_MCP_VERSION=latest
+ARG AFFINE_MCP_VERSION=2.1.0
 
 # Install curl (Coolify's healthcheck needs curl or wget; node:slim ships neither)
 # and the AFFiNE MCP server globally from npm.
