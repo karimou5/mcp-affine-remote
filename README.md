@@ -1,5 +1,11 @@
 # mcp-affine-remote
 
+> **DÉPRÉCIÉ (13/08/2026)** : remplacé par le serveur MCP construit depuis le repo
+> privé [`karimou5/affine-cli`](https://github.com/karimou5/affine-cli)
+> (image `ghcr.io/karimou5/affine-cli:latest`, même surface d'outils que le CLI
+> `affine` + tool `gql`). L'app Coolify `affine-mcp.karimou.me` pointe désormais
+> sur cette image, en mode bearer. Ce repo n'est plus déployé.
+
 Self-hosted **remote** wrapper around [`affine-mcp-server`](https://github.com/DAWNCR0W/affine-mcp-server), packaged as a Docker container running the **HTTP transport** so it can be used as a remote MCP connector (Claude web, Claude Code, Claude Desktop, etc.).
 
 The image is built by a GitHub Action and pushed to **GHCR**; it is deployed on **Coolify**.
